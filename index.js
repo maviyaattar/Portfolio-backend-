@@ -1,13 +1,10 @@
+
 /**
  * Portfolio Backend API
  * Tech: Node.js + Express + MongoDB (Mongoose)
- * Single-file setup
- * Features:
- * - Projects CRUD (Live + Source links)
- * - Contact form (store messages)
- * - Admin can view & delete contacts
- * - CORS enabled
- * - Replit & Render ready
+ * UPDATED:
+ * - image OPTIONAL
+ * - multiple categories allowed
  */
 
 const express = require("express");
@@ -46,29 +43,35 @@ const projectSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+
+    /* IMAGE OPTIONAL */
     image: {
       type: String,
-      required: true
+      default: ""
     },
-    category: {
-      type: String,
+
+    /* MULTIPLE CATEGORIES */
+    categories: {
+      type: [String],
       enum: ["static", "fullstack", "ai", "automation", "hacking"],
       required: true
     },
+
     stack: {
       type: String,
       required: true
     },
+
     description: {
       type: String,
       required: true
     },
 
-    /* BOTH LINKS ALLOWED */
     liveLink: {
       type: String,
       default: ""
     },
+
     sourceLink: {
       type: String,
       default: ""
@@ -111,32 +114,17 @@ app.get("/", (req, res) => {
   res.json({ status: "API running 🚀" });
 });
 
-/* ========= PROJECT ROUTES ========= */
-
-/* GET all projects */
+/* GET ALL PROJECTS */
 app.get("/projects", async (req, res) => {
   try {
     const projects = await Project.find().sort({ createdAt: -1 });
     res.json(projects);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Failed to fetch projects" });
   }
 });
 
-/* GET single project */
-app.get("/projects/:id", async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-    res.json(project);
-  } catch (err) {
-    res.status(400).json({ error: "Invalid project ID" });
-  }
-});
-
-/* ADD project (ADMIN) */
+/* ADD PROJECT */
 app.post("/projects", async (req, res) => {
   try {
     const project = await Project.create(req.body);
@@ -149,7 +137,7 @@ app.post("/projects", async (req, res) => {
   }
 });
 
-/* UPDATE project (ADMIN) */
+/* UPDATE PROJECT */
 app.put("/projects/:id", async (req, res) => {
   try {
     const updated = await Project.findByIdAndUpdate(
@@ -157,72 +145,40 @@ app.put("/projects/:id", async (req, res) => {
       req.body,
       { new: true, runValidators: true }
     );
-
-    if (!updated) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-
     res.json(updated);
-  } catch (err) {
-    res.status(400).json({
-      error: "Update failed",
-      details: err.message
-    });
+  } catch {
+    res.status(400).json({ error: "Update failed" });
   }
 });
 
-/* DELETE project (ADMIN) */
+/* DELETE PROJECT */
 app.delete("/projects/:id", async (req, res) => {
   try {
-    const deleted = await Project.findByIdAndDelete(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-    res.json({ success: true, message: "Project deleted" });
-  } catch (err) {
+    await Project.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch {
     res.status(400).json({ error: "Delete failed" });
   }
 });
 
-/* ========= CONTACT ROUTES ========= */
-
-/* SUBMIT contact form (PUBLIC) */
+/* CONTACT ROUTES */
 app.post("/contact", async (req, res) => {
   try {
-    const contact = await Contact.create(req.body);
-    res.status(201).json({
-      success: true,
-      message: "Message received"
-    });
-  } catch (err) {
-    res.status(400).json({
-      error: "Invalid contact data",
-      details: err.message
-    });
+    await Contact.create(req.body);
+    res.json({ success: true });
+  } catch {
+    res.status(400).json({ error: "Invalid contact data" });
   }
 });
 
-/* GET all contact messages (ADMIN) */
 app.get("/contacts", async (req, res) => {
-  try {
-    const contacts = await Contact.find().sort({ createdAt: -1 });
-    res.json(contacts);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch contacts" });
-  }
+  const contacts = await Contact.find().sort({ createdAt: -1 });
+  res.json(contacts);
 });
 
-/* DELETE contact message (ADMIN) */
 app.delete("/contacts/:id", async (req, res) => {
-  try {
-    const deleted = await Contact.findByIdAndDelete(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ error: "Message not found" });
-    }
-    res.json({ success: true, message: "Message deleted" });
-  } catch (err) {
-    res.status(400).json({ error: "Delete failed" });
-  }
+  await Contact.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
 });
 
 /* =====================
