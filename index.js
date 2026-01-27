@@ -1,15 +1,13 @@
-
 /**
  * Portfolio Backend API
- * Tech: Node.js + Express + MongoDB (Mongoose)
- * UPDATED:
- * - image OPTIONAL
- * - multiple categories allowed
+ * Tech: Node.js + Express + MongoDB
+ * UPDATED WITH AMEER AI
  */
 
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,69 +33,28 @@ mongoose
    SCHEMAS
 ===================== */
 
-/* PROJECT SCHEMA */
 const projectSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
-
-    /* IMAGE OPTIONAL */
-    image: {
-      type: String,
-      default: ""
-    },
-
-    /* MULTIPLE CATEGORIES */
+    name: { type: String, required: true, trim: true },
+    image: { type: String, default: "" },
     categories: {
       type: [String],
       enum: ["static", "fullstack", "ai", "automation", "hacking"],
       required: true
     },
-
-    stack: {
-      type: String,
-      required: true
-    },
-
-    description: {
-      type: String,
-      required: true
-    },
-
-    liveLink: {
-      type: String,
-      default: ""
-    },
-
-    sourceLink: {
-      type: String,
-      default: ""
-    }
+    stack: { type: String, required: true },
+    description: { type: String, required: true },
+    liveLink: { type: String, default: "" },
+    sourceLink: { type: String, default: "" }
   },
   { timestamps: true }
 );
 
-/* CONTACT SCHEMA */
 const contactSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    email: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    message: {
-      type: String,
-      required: true,
-      trim: true
-    }
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, trim: true },
+    message: { type: String, required: true, trim: true }
   },
   { timestamps: true }
 );
@@ -106,69 +63,89 @@ const Project = mongoose.model("Project", projectSchema);
 const Contact = mongoose.model("Contact", contactSchema);
 
 /* =====================
-   ROUTES
+   AMEER AI CONFIG
 ===================== */
 
-/* HEALTH CHECK */
+const SYSTEM_PROMPT = `
+You are Ameer, the portfolio AI assistant of Maviya Attar.
+
+PERSONALITY:
+Cool, friendly, natural vibe. Hinglish allowed. Short replies.
+
+MAVIYA INFO:
+Male, from Solapur, Maharashtra, India.
+Diploma in Computer Engineering.
+Skills: HTML, CSS, JS, React, Node.js, Python, Firebase, MySQL, MongoDB.
+
+ACTION RULES:
+CV → ACTION_CV
+GitHub → ACTION_GITHUB
+LinkedIn → ACTION_LINKEDIN
+Instagram → ACTION_INSTAGRAM
+Dark mode → ACTION_DARK
+Light mode → ACTION_LIGHT
+
+Only discuss Maviya’s portfolio.
+`;
+
+async function askAmeer(message) {
+  const response = await axios.post(
+    "https://api.groq.com/openai/v1/chat/completions",
+    {
+      model: "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: message }
+      ],
+      temperature: 0.3
+    },
+    {
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  return response.data.choices[0].message.content.trim();
+}
+
+/* =====================
+   ROUTES (OLD + NEW)
+===================== */
+
 app.get("/", (req, res) => {
   res.json({ status: "API running 🚀" });
 });
 
-/* GET ALL PROJECTS */
+/* PROJECT ROUTES */
 app.get("/projects", async (req, res) => {
-  try {
-    const projects = await Project.find().sort({ createdAt: -1 });
-    res.json(projects);
-  } catch {
-    res.status(500).json({ error: "Failed to fetch projects" });
-  }
+  const projects = await Project.find().sort({ createdAt: -1 });
+  res.json(projects);
 });
 
-/* ADD PROJECT */
 app.post("/projects", async (req, res) => {
-  try {
-    const project = await Project.create(req.body);
-    res.status(201).json(project);
-  } catch (err) {
-    res.status(400).json({
-      error: "Invalid project data",
-      details: err.message
-    });
-  }
+  const project = await Project.create(req.body);
+  res.status(201).json(project);
 });
 
-/* UPDATE PROJECT */
 app.put("/projects/:id", async (req, res) => {
-  try {
-    const updated = await Project.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    res.json(updated);
-  } catch {
-    res.status(400).json({ error: "Update failed" });
-  }
+  const updated = await Project.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true
+  });
+  res.json(updated);
 });
 
-/* DELETE PROJECT */
 app.delete("/projects/:id", async (req, res) => {
-  try {
-    await Project.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch {
-    res.status(400).json({ error: "Delete failed" });
-  }
+  await Project.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
 });
 
 /* CONTACT ROUTES */
 app.post("/contact", async (req, res) => {
-  try {
-    await Contact.create(req.body);
-    res.json({ success: true });
-  } catch {
-    res.status(400).json({ error: "Invalid contact data" });
-  }
+  await Contact.create(req.body);
+  res.json({ success: true });
 });
 
 app.get("/contacts", async (req, res) => {
@@ -179,6 +156,34 @@ app.get("/contacts", async (req, res) => {
 app.delete("/contacts/:id", async (req, res) => {
   await Contact.findByIdAndDelete(req.params.id);
   res.json({ success: true });
+});
+
+/* =====================
+   AMEER AI ROUTE (NEW)
+===================== */
+
+app.post("/ai/chat", async (req, res) => {
+  try {
+    const aiReply = await askAmeer(req.body.message);
+
+    const actions = {
+      ACTION_CV: "https://maviyaattar.vercel.app/Maviya_CV.pdf",
+      ACTION_GITHUB: "https://github.com/yourusername",
+      ACTION_LINKEDIN: "https://linkedin.com/in/yourprofile",
+      ACTION_INSTAGRAM: "https://instagram.com/yourid",
+      ACTION_DARK: "DARK_MODE",
+      ACTION_LIGHT: "LIGHT_MODE"
+    };
+
+    if (actions[aiReply]) {
+      return res.json({ type: "action", value: actions[aiReply] });
+    }
+
+    res.json({ type: "text", value: aiReply });
+  } catch (err) {
+    console.error("AI ERROR:", err.response?.data || err.message);
+    res.status(500).json({ error: "AI failed" });
+  }
 });
 
 /* =====================
